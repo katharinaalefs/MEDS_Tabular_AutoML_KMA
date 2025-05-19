@@ -329,6 +329,69 @@ def write_df(
     else:
         raise TypeError(f"Unsupported type for df: {type(df)}")
 
+def write_df_csv(
+    df: pl.LazyFrame | pl.DataFrame | coo_array,
+    fp: Path,
+    do_compress: bool = False,
+    do_overwrite: bool = False,
+) -> None:
+    """Writes a sparse matrix to disk.
+
+    Args:
+        df: The sparse matrix to write.
+        fp: The file path where to write the data.
+        do_compress: A flag indicating whether to compress the data.
+        do_overwrite: A flag indicating whether to overwrite the file if it already exists.
+
+    Raises:
+        FileExistsError: If the file exists and 'do_overwrite' is not set to True.
+        TypeError: If the type of 'df' is not supported for writing.
+
+    Examples:
+        >>> import tempfile
+        >>> from polars.testing import assert_frame_equal
+        >>> df_polars = pl.DataFrame({"a": [1, 2, 3]})
+        >>> df_coo_array = coo_array(([1, 2, 3], ([0, 1, 2], [0, 0, 0])), shape=(3, 1))
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     fp = Path(tmpdir) / "test.parquet"
+        ...     write_df(df_polars, fp)
+        ...     assert fp.is_file()
+        ...     assert_frame_equal(pl.read_parquet(fp), df_polars)
+        ...     write_df(df_polars.lazy(), fp, do_overwrite=True)
+        ...     assert_frame_equal(pl.read_parquet(fp), df_polars)
+        ...     fp = Path(tmpdir) / "test.npz"
+        ...     write_df(df_coo_array, fp, do_compress=False, do_overwrite=True)
+        ...     assert load_matrix(fp).toarray().tolist() == [[1], [2], [3]]
+        ...     fp = Path(tmpdir) / "test_compressed.npz"
+        ...     write_df(df_coo_array, fp, do_compress=True, do_overwrite=True)
+        ...     assert load_matrix(fp).toarray().tolist() == [[1], [2], [3]]
+        ...     import pytest
+        ...     with pytest.raises(FileExistsError):
+        ...         write_df(df_coo_array, fp, do_overwrite=False)
+    """
+    if fp.is_file() and not do_overwrite:
+        raise FileExistsError(f"{fp} exists and do_overwrite is {do_overwrite}!")
+
+    fp.parent.mkdir(exist_ok=True, parents=True)
+
+    if isinstance(df, pl.LazyFrame):
+        df = df.collect()
+    elif isinstance(df, pl.DataFrame):
+        pass
+    elif isinstance(df, coo_array):
+        df_dense = df.toarray()
+        df = pl.DataFrame(df_dense)
+
+        #store_matrix(df, fp, do_compress)
+    else:
+        raise TypeError(f"Unsupported type for df: {type(df)}")
+    
+     # Ensure file has .csv extension
+    if fp.suffix != ".csv":
+        fp = fp.with_suffix(".csv")
+
+    df.write_csv(fp) 
+
 
 def get_events_df(shard_df: pl.LazyFrame, feature_columns) -> pl.LazyFrame:
     """Extracts and filters an Events LazyFrame with one row per observation (times can be duplicated).
