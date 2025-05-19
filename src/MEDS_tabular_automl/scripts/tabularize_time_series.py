@@ -28,6 +28,7 @@ from ..utils import (
     load_tqdm,
     stage_init,
     write_df,
+    write_df_csv,
 )
 
 config_yaml = files("MEDS_tabular_automl").joinpath("configs/tabularization.yaml")
@@ -133,11 +134,9 @@ def main(
             return summary_df
 
         def write_fn(out_matrix, out_fp):
-            coo_matrix = out_matrix.tocoo()
-            write_df(
-                coo_matrix, out_fp, do_compress=cfg.tabularization.do_compress, do_overwrite=cfg.do_overwrite
+            write_df_csv(
+                out_matrix, out_fp, do_compress=False, do_overwrite=cfg.do_overwrite
             )
-            del coo_matrix
             del out_matrix
             gc.collect()
 
