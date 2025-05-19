@@ -32,7 +32,7 @@ from ..utils import (
     load_tqdm,
     stage_init,
     write_df,
-    write_df_csv
+    write_df_csv,
 )
 
 config_yaml = files("MEDS_tabular_automl").joinpath("configs/tabularization.yaml")
